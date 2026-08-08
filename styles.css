@@ -596,6 +596,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .login-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
 .login-btn:active { transform: translateY(0); }
 .login-error { color: #e74c3c; font-size: 13px; margin-top: 12px; min-height: 18px; }
+.login-hint a { color: #6C5CE7; text-decoration: none; }
 
 /* ====== Sync Status ====== */
 .sync-status {
