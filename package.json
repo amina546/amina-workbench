@@ -1,0 +1,13 @@
+{
+  "name": "amina-workbench",
+  "version": "6.0.0",
+  "description": "Amina 工作台 - 多端同步版",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

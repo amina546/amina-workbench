@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amina 工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- ====== Login Overlay ====== -->
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">A</div>
+      <h2 class="login-title">Amina 工作台</h2>
+      <p class="login-sub" id="login-sub">首次使用请设置密码</p>
+      <input type="password" id="login-password" class="login-input" placeholder="输入密码" autocomplete="current-password">
+      <button class="login-btn" id="login-btn">进入</button>
+      <p class="login-error" id="login-error"></p>
+    </div>
+  </div>
+
+  <!-- ====== Sync Status ====== -->
+  <div class="sync-status" id="sync-status" title="同步状态"><span class="sync-dot"></span><span id="sync-text">离线</span></div>
+
+  <div class="app">
+    <!-- ====== Sidebar ====== -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">A</span>
+          <span class="logo-text">Amina</span>
+        </div>
+        <div class="date-info">
+          <div class="current-date" id="sidebar-date"></div>
+          <div class="current-time" id="sidebar-time"></div>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="daily"><span class="nav-icon">&#128203;</span><span>每日计划</span></button>
+        <button class="nav-item" data-view="weekly"><span class="nav-icon">&#128197;</span><span>每周计划</span></button>
+        <button class="nav-item" data-view="monthly"><span class="nav-icon">&#128198;</span><span>每月计划</span></button>
+        <button class="nav-item" data-view="bills"><span class="nav-icon">&#129534;</span><span>账单</span></button>
+        <button class="nav-item" data-view="savings"><span class="nav-icon">&#128176;</span><span>资产</span></button>
+        <button class="nav-item" data-view="review"><span class="nav-icon">&#128202;</span><span>复盘</span></button>
+        <button class="nav-item" data-view="health"><span class="nav-icon">&#128154;</span><span>健康</span></button>
+        <button class="nav-item" data-view="reviews"><span class="nav-icon">&#127916;</span><span>影评</span></button>
+        <button class="nav-item" data-view="calendar"><span class="nav-icon">&#128197;</span><span>日历</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="mini-stats">
+          <div class="mini-stat">
+            <div class="mini-stat-ring" id="mini-ring">
+              <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" class="mini-ring-bg"/><circle cx="22" cy="22" r="18" class="mini-ring-fg" id="mini-ring-fg"/></svg>
+              <span class="mini-ring-text" id="mini-completion">0%</span>
+            </div>
+            <span class="mini-stat-label">今日完成</span>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-expense-icon">&#128176;</div>
+            <div><span class="mini-expense-value" id="mini-expense">&#165;0</span><span class="mini-stat-label">今日开支</span></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ====== Main Content ====== -->
+    <main class="content">
+      <!-- ==================== Daily View ==================== -->
+      <section class="view active" id="view-daily">
+        <div class="view-header">
+          <div><h1 class="view-title">每日计划</h1><p class="view-subtitle" id="daily-date-label"></p></div>
+          <div class="date-nav">
+            <button class="btn-icon" id="prev-day">&#8249;</button>
+            <span class="date-display" id="daily-date-display"></span>
+            <button class="btn-icon" id="next-day">&#8250;</button>
+            <button class="btn-today" id="today-btn">今天</button>
+          </div>
+        </div>
+        <div class="stats-bar">
+          <div class="stat-card"><div class="stat-card-icon green">&#9989;</div><div class="stat-card-info"><div class="stat-card-value" id="daily-completed">0</div><div class="stat-card-label">已完成</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon orange">&#128221;</div><div class="stat-card-info"><div class="stat-card-value" id="daily-pending">0</div><div class="stat-card-label">待完成</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon blue">&#128202;</div><div class="stat-card-info"><div class="stat-card-value" id="daily-completion-rate">0%</div><div class="stat-card-label">完成率</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon purple">&#128176;</div><div class="stat-card-info"><div class="stat-card-value" id="daily-expense-total">&#165;0</div><div class="stat-card-label">今日开支</div></div></div>
+        </div>
+
+        <!-- Planner Timeline + Todo -->
+        <div class="daily-grid">
+          <div class="card planner-card">
+            <div class="card-header"><h2 class="card-title">&#128221; 时间轴</h2></div>
+            <div class="planner-input-bar">
+              <div class="planner-field"><label>开始</label><input type="time" id="tl-start" class="input-time" value="09:00"></div>
+              <div class="planner-field"><label>结束</label><input type="time" id="tl-end" class="input-time" value="10:00"></div>
+              <div class="planner-field flex1"><label>任务</label><input type="text" id="tl-title" class="input" placeholder="输入任务..."></div>
+              <div class="planner-field"><label>分类</label>
+                <select id="tl-category" class="select select-sm">
+                  <option value="work">&#128188; 工作</option>
+                  <option value="health">&#128170; 健康</option>
+                  <option value="study">&#128218; 学习</option>
+                  <option value="life">&#127968; 生活</option>
+                  <option value="social">&#128101; 社交</option>
+                  <option value="rest">&#128164; 休息</option>
+                </select>
+              </div>
+              <button class="btn-sm btn-primary planner-add-btn" id="tl-add">添加</button>
+            </div>
+            <div class="planner-body">
+              <div class="planner-axis" id="planner-axis"></div>
+              <div class="planner-tasks" id="planner-tasks"></div>
+            </div>
+          </div>
+
+          <div class="card todo-card">
+            <div class="card-header"><h2 class="card-title">&#9745; 待办事项</h2><button class="btn-sm btn-primary" id="add-todo-btn">+ 添加</button></div>
+            <div class="todo-input-row" id="todo-input-row" style="display:none;">
+              <input type="text" id="todo-input" placeholder="输入待办事项..." class="input">
+              <select id="todo-priority" class="select select-sm"><option value="high">&#128308; 高</option><option value="medium" selected>&#128992; 中</option><option value="low">&#128309; 低</option></select>
+              <button class="btn-sm btn-primary" id="todo-add-confirm">确认</button>
+            </div>
+            <div class="todo-list" id="todo-list"></div>
+            <div class="empty-state" id="todo-empty"><span class="empty-icon">&#9745;</span><p>还没有待办事项</p><span>添加一个任务开始吧</span></div>
+          </div>
+        </div>
+
+        <div class="card expense-card">
+          <div class="card-header"><h2 class="card-title">&#128176; 今日开支</h2><button class="btn-sm btn-primary" id="add-expense-btn">+ 记一笔</button></div>
+          <div class="expense-input-row" id="expense-input-row" style="display:none;">
+            <input type="number" id="exp-amount" placeholder="金额" class="input input-sm" step="0.01" min="0">
+            <select id="exp-main-cat" class="select select-sm"></select>
+            <select id="exp-sub-cat" class="select select-sm"></select>
+            <input type="text" id="exp-note" placeholder="备注（如：豆浆油条）" class="input">
+            <button class="btn-sm btn-primary" id="exp-confirm">确认</button>
+          </div>
+          <div class="expense-list" id="expense-list"></div>
+          <div class="empty-state" id="expense-empty"><span class="empty-icon">&#128176;</span><p>今天还没有开支记录</p><span>点击「记一笔」开始记录</span></div>
+        </div>
+      </section>
+
+      <!-- ==================== Weekly View ==================== -->
+      <section class="view" id="view-weekly">
+        <div class="view-header">
+          <div><h1 class="view-title">每周计划</h1><p class="view-subtitle" id="weekly-range-label"></p></div>
+          <div class="date-nav"><button class="btn-icon" id="prev-week">&#8249;</button><button class="btn-today" id="this-week-btn">本周</button><button class="btn-icon" id="next-week">&#8250;</button></div>
+        </div>
+        <div class="stats-bar">
+          <div class="stat-card"><div class="stat-card-icon green">&#9989;</div><div class="stat-card-info"><div class="stat-card-value" id="weekly-completion">0%</div><div class="stat-card-label">本周完成率</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon orange">&#128221;</div><div class="stat-card-info"><div class="stat-card-value" id="weekly-tasks">0</div><div class="stat-card-label">总任务数</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon purple">&#128176;</div><div class="stat-card-info"><div class="stat-card-value" id="weekly-expense">&#165;0</div><div class="stat-card-label">本周开支</div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">&#127919; 本周目标</h2><button class="btn-sm btn-primary" id="add-weekly-goal-btn">+ 添加目标</button></div>
+          <div class="goal-input-row" id="weekly-goal-input-row" style="display:none;"><input type="text" id="weekly-goal-input" placeholder="输入本周目标..." class="input"><button class="btn-sm btn-primary" id="weekly-goal-confirm">确认</button></div>
+          <div class="goal-list" id="weekly-goal-list"></div>
+          <div class="empty-state" id="weekly-goal-empty"><span class="empty-icon">&#127919;</span><p>还没有本周目标</p><span>设定几个本周想完成的目标吧</span></div>
+        </div>
+        <div class="card"><div class="card-header"><h2 class="card-title">&#128197; 本周概览</h2></div><div class="week-grid" id="week-grid"></div></div>
+        <div class="card"><div class="card-header"><h2 class="card-title">&#128201; 完成趋势</h2></div><div class="chart-wrap"><canvas id="weekly-chart"></canvas></div></div>
+      </section>
+
+      <!-- ==================== Monthly View ==================== -->
+      <section class="view" id="view-monthly">
+        <div class="view-header">
+          <div><h1 class="view-title">每月计划</h1><p class="view-subtitle" id="monthly-label"></p></div>
+          <div class="date-nav"><button class="btn-icon" id="prev-month">&#8249;</button><button class="btn-today" id="this-month-btn">本月</button><button class="btn-icon" id="next-month">&#8250;</button></div>
+        </div>
+        <div class="stats-bar">
+          <div class="stat-card"><div class="stat-card-icon green">&#9989;</div><div class="stat-card-info"><div class="stat-card-value" id="monthly-completion">0%</div><div class="stat-card-label">本月完成率</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon purple">&#128176;</div><div class="stat-card-info"><div class="stat-card-value" id="monthly-expense">&#165;0</div><div class="stat-card-label">本月开支</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon blue">&#128197;</div><div class="stat-card-info"><div class="stat-card-value" id="monthly-days">0</div><div class="stat-card-label">记录天数</div></div></div>
+        </div>
+        <div class="monthly-grid">
+          <div class="card"><div class="card-header"><h2 class="card-title">&#128198; 日历</h2></div><div class="calendar" id="calendar"></div></div>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#127919; 本月目标</h2><button class="btn-sm btn-primary" id="add-monthly-goal-btn">+ 添加目标</button></div>
+            <div class="goal-input-row" id="monthly-goal-input-row" style="display:none;"><input type="text" id="monthly-goal-input" placeholder="输入本月目标..." class="input"><button class="btn-sm btn-primary" id="monthly-goal-confirm">确认</button></div>
+            <div class="goal-list" id="monthly-goal-list"></div>
+            <div class="empty-state" id="monthly-goal-empty"><span class="empty-icon">&#127919;</span><p>还没有本月目标</p><span>设定几个本月想完成的目标吧</span></div>
+          </div>
+        </div>
+        <div class="charts-grid">
+          <div class="card"><div class="card-header"><h2 class="card-title">&#128201; 每日完成率</h2></div><div class="chart-wrap"><canvas id="monthly-completion-chart"></canvas></div></div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#129477; 开支分类</h2></div><div class="chart-wrap"><canvas id="monthly-expense-chart"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ==================== Bills View ==================== -->
+      <section class="view" id="view-bills">
+        <div class="view-header">
+          <div><h1 class="view-title">账单</h1><p class="view-subtitle" id="bills-label"></p></div>
+          <div class="date-nav"><button class="btn-icon" id="prev-bill-month">&#8249;</button><button class="btn-today" id="this-bill-month-btn">本月</button><button class="btn-icon" id="next-bill-month">&#8250;</button></div>
+        </div>
+        <div class="stats-bar">
+          <div class="stat-card"><div class="stat-card-icon purple">&#128176;</div><div class="stat-card-info"><div class="stat-card-value" id="bills-total">&#165;0</div><div class="stat-card-label">本月总开支</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon green">&#128176;</div><div class="stat-card-info"><div class="stat-card-value" id="bills-income">&#165;0</div><div class="stat-card-label">本月收入</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon orange">&#128201;</div><div class="stat-card-info"><div class="stat-card-value" id="bills-surplus">&#165;0</div><div class="stat-card-label">本月盈余</div></div></div>
+          <div class="stat-card"><div class="stat-card-icon blue">&#128221;</div><div class="stat-card-info"><div class="stat-card-value" id="bills-count">0</div><div class="stat-card-label">交易笔数</div></div></div>
+        </div>
+        <div class="bill-tabs">
+          <button class="bill-tab active" data-tab="expense">支出</button>
+          <button class="bill-tab" data-tab="income">收入</button>
+        </div>
+        <div class="card" id="income-input-card" style="display:none;">
+          <div class="card-header"><h2 class="card-title">&#128176; 记一笔收入</h2><button class="btn-sm btn-primary" id="add-income-cat-btn">+ 添加收入类型</button></div>
+          <div class="income-input-row">
+            <input type="number" id="inc-amount" placeholder="金额" class="input input-sm" step="0.01" min="0">
+            <select id="inc-cat" class="select select-sm"></select>
+            <input type="text" id="inc-note" placeholder="备注（如：8月工资）" class="input">
+            <button class="btn-sm btn-primary" id="inc-confirm">确认</button>
+          </div>
+          <div class="income-list" id="income-list"></div>
+          <div class="empty-state" id="income-empty"><span class="empty-icon">&#128176;</span><p>本月还没有收入记录</p><span>点击上方记一笔收入</span></div>
+        </div>
+        <div id="expense-panel">
+          <div class="charts-grid">
+            <div class="card"><div class="card-header"><h2 class="card-title">&#129477; 大项占比</h2></div><div class="chart-wrap"><canvas id="bills-main-pie"></canvas></div></div>
+            <div class="card"><div class="card-header"><h2 class="card-title" id="bills-sub-title">&#129477; 小项占比</h2></div><div class="chart-wrap"><canvas id="bills-sub-pie"></canvas></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#128203; 分类明细</h2><button class="btn-sm btn-primary" id="add-main-cat-btn">+ 添加大项</button></div>
+            <div class="bill-cat-list" id="bill-cat-list"></div>
+            <div class="empty-state" id="bill-empty"><span class="empty-icon">&#128203;</span><p>本月暂无开支记录</p><span>在每日计划中记录开支后会自动同步到这里</span></div>
+          </div>
+          <div class="card" id="bill-sub-detail-card" style="display:none;">
+            <div class="card-header"><h2 class="card-title" id="bill-sub-detail-title">小项明细</h2><button class="btn-sm btn-primary" id="add-sub-cat-btn">+ 添加小项</button></div>
+            <div class="bill-sub-list" id="bill-sub-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== Savings/Assets View ==================== -->
+      <section class="view" id="view-savings">
+        <div class="view-header">
+          <div><h1 class="view-title">资产</h1><p class="view-subtitle">管理你的储蓄、收支和资产</p></div>
+        </div>
+        <div class="savings-balance-card">
+          <div class="savings-balance-main">
+            <span class="savings-balance-label">总资产</span>
+            <span class="savings-balance-amount" id="savings-total">&#165;0.00</span>
+            <div class="savings-balance-stats">
+              <div class="sb-stat"><span class="sb-stat-label">本月存入</span><span class="sb-stat-value green" id="savings-month-in">&#165;0</span></div>
+              <div class="sb-stat"><span class="sb-stat-label">本月支出</span><span class="sb-stat-value red" id="savings-month-out">&#165;0</span></div>
+              <div class="sb-stat"><span class="sb-stat-label">本月盈余</span><span class="sb-stat-value" id="savings-month-surplus">&#165;0</span></div>
+              <div class="sb-stat"><span class="sb-stat-label">小荷包</span><span class="sb-stat-value" id="pouch-total">&#165;0</span></div>
+            </div>
+          </div>
+          <div class="savings-quick-action">
+            <input type="text" id="sav-label" class="input" placeholder="备注（如：工资、奖金）">
+            <input type="number" id="sav-amount" class="input input-sm" placeholder="金额" step="0.01" min="0">
+            <select id="sav-type" class="select select-sm"><option value="in">存入</option><option value="out">取出</option></select>
+            <button class="btn-sm btn-primary" id="sav-add">确认</button>
+          </div>
+        </div>
+        <div class="charts-grid">
+          <div class="card"><div class="card-header"><h2 class="card-title">&#128201; 月度收入趋势</h2></div><div class="chart-wrap"><canvas id="asset-income-chart"></canvas></div></div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#128201; 月度消费趋势</h2></div><div class="chart-wrap"><canvas id="asset-expense-chart"></canvas></div></div>
+        </div>
+        <div class="card pouch-card">
+          <div class="card-header"><h2 class="card-title">&#128057; 小荷包</h2><button class="btn-sm btn-primary" id="pouch-add-btn">+ 添加</button></div>
+          <div class="pouch-input-row" id="pouch-input-row" style="display:none;">
+            <input type="text" id="pouch-label" class="input" placeholder="备注（如：零花钱、红包）">
+            <input type="number" id="pouch-amount" class="input input-sm" placeholder="金额" step="0.01" min="0">
+            <select id="pouch-type" class="select select-sm"><option value="in">存入</option><option value="out">取出</option></select>
+            <button class="btn-sm btn-primary" id="pouch-confirm">确认</button>
+          </div>
+          <div class="pouch-balance"><span class="pouch-balance-label">小荷包余额</span><span class="pouch-balance-amount" id="pouch-balance-display">&#165;0.00</span></div>
+          <div class="pouch-tx-list" id="pouch-tx-list"></div>
+          <div class="empty-state" id="pouch-empty"><span class="empty-icon">&#128057;</span><p>小荷包还是空的</p><span>手动添加金额，作为额外存款</span></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">&#127919; 存款目标</h2><button class="btn-sm btn-primary" id="add-savings-goal-btn">+ 添加目标</button></div>
+          <div class="goal-input-row" id="savings-goal-input-row" style="display:none;">
+            <input type="text" id="savings-goal-name" class="input" placeholder="目标名称（如：旅游基金）">
+            <input type="number" id="savings-goal-amount" class="input input-sm" placeholder="目标金额" step="0.01" min="0">
+            <button class="btn-sm btn-primary" id="savings-goal-confirm">确认</button>
+          </div>
+          <div class="savings-goal-list" id="savings-goal-list"></div>
+          <div class="empty-state" id="savings-goal-empty"><span class="empty-icon">&#127919;</span><p>还没有存款目标</p><span>设定一个储蓄目标，追踪你的进度</span></div>
+        </div>
+        <div class="card"><div class="card-header"><h2 class="card-title">&#128201; 资产趋势</h2></div><div class="chart-wrap"><canvas id="savings-trend-chart"></canvas></div></div>
+      </section>
+
+      <!-- ==================== Review View ==================== -->
+      <section class="view" id="view-review">
+        <div class="view-header"><div><h1 class="view-title">复盘</h1><p class="view-subtitle">每日 / 每周 / 每月 / 每年</p></div></div>
+        <div class="review-tabs">
+          <button class="review-tab active" data-rtab="daily">每日复盘</button>
+          <button class="review-tab" data-rtab="weekly">每周复盘</button>
+          <button class="review-tab" data-rtab="monthly">每月复盘</button>
+          <button class="review-tab" data-rtab="yearly">每年复盘</button>
+        </div>
+        <div class="review-panel active" id="review-panel-daily">
+          <div class="review-summary-card">
+            <div class="review-completion-ring"><svg viewBox="0 0 140 140" class="ring-svg"><circle cx="70" cy="70" r="60" class="ring-bg-circle"/><circle cx="70" cy="70" r="60" class="ring-fg-circle" id="review-ring-fg"/></svg><div class="ring-center"><span class="ring-percent" id="review-completion-percent">0%</span><span class="ring-label">完成度</span></div></div>
+            <div class="review-details">
+              <div class="review-detail-item"><span class="detail-icon green">&#9989;</span><div><span class="detail-label">完成任务</span><span class="detail-value" id="review-tasks-done">0 / 0</span></div></div>
+              <div class="review-detail-item"><span class="detail-icon purple">&#128176;</span><div><span class="detail-label">今日开支</span><span class="detail-value" id="review-expense">&#165;0</span></div></div>
+              <div class="review-detail-item"><span class="detail-icon blue">&#9201;</span><div><span class="detail-label">时间轴事项</span><span class="detail-value" id="review-timeline-count">0</span></div></div>
+            </div>
+          </div>
+          <div class="review-date-nav"><button class="btn-icon" id="prev-review-day">&#8249;</button><span class="date-display" id="review-date-display"></span><button class="btn-icon" id="next-review-day">&#8250;</button></div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#11088; 今日评分</h2></div><div class="rating-row" id="rating-row"><button class="rating-btn" data-rating="1"><span class="rating-emoji">&#128542;</span><span class="rating-text">很差</span></button><button class="rating-btn" data-rating="2"><span class="rating-emoji">&#128533;</span><span class="rating-text">不好</span></button><button class="rating-btn" data-rating="3"><span class="rating-emoji">&#128528;</span><span class="rating-text">一般</span></button><button class="rating-btn" data-rating="4"><span class="rating-emoji">&#128522;</span><span class="rating-text">不错</span></button><button class="rating-btn" data-rating="5"><span class="rating-emoji">&#129321;</span><span class="rating-text">很棒</span></button></div></div>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#128221; 今日反思</h2></div>
+            <div class="reflection-section"><label class="reflection-label">&#10024; 做得好的</label><textarea class="textarea" id="review-went-well" placeholder="今天有哪些做得好的事情？" rows="3"></textarea></div>
+            <div class="reflection-section"><label class="reflection-label">&#128260; 需要改进的</label><textarea class="textarea" id="review-improve" placeholder="有哪些可以做得更好的？" rows="3"></textarea></div>
+            <div class="reflection-section"><label class="reflection-label">&#128161; 明日计划</label><textarea class="textarea" id="review-tomorrow" placeholder="明天打算做什么？" rows="3"></textarea></div>
+            <div class="reflection-actions"><button class="btn-sm btn-primary" id="save-review-btn">保存复盘</button><span class="save-status" id="save-status"></span></div>
+          </div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#128201; 近7天完成趋势</h2></div><div class="chart-wrap"><canvas id="review-trend-chart"></canvas></div></div>
+        </div>
+        <div class="review-panel" id="review-panel-weekly">
+          <div class="review-date-nav"><button class="btn-icon" id="prev-review-week">&#8249;</button><span class="date-display" id="review-week-display"></span><button class="btn-icon" id="next-review-week">&#8250;</button></div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#11088; 本周评分</h2></div><div class="rating-row" id="weekly-rating-row"><button class="rating-btn" data-rating="1"><span class="rating-emoji">&#128542;</span><span class="rating-text">很差</span></button><button class="rating-btn" data-rating="2"><span class="rating-emoji">&#128533;</span><span class="rating-text">不好</span></button><button class="rating-btn" data-rating="3"><span class="rating-emoji">&#128528;</span><span class="rating-text">一般</span></button><button class="rating-btn" data-rating="4"><span class="rating-emoji">&#128522;</span><span class="rating-text">不错</span></button><button class="rating-btn" data-rating="5"><span class="rating-emoji">&#129321;</span><span class="rating-text">很棒</span></button></div></div>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#128221; 本周反思</h2></div>
+            <div class="reflection-section"><label class="reflection-label">&#10024; 做得好的</label><textarea class="textarea" id="weekly-review-went-well" placeholder="本周有哪些做得好的事情？" rows="3"></textarea></div>
+            <div class="reflection-section"><label class="reflection-label">&#128260; 需要改进的</label><textarea class="textarea" id="weekly-review-improve" placeholder="有哪些可以做得更好的？" rows="3"></textarea></div>
+            <div class="reflection-section"><label class="reflection-label">&#128161; 下周计划</label><textarea class="textarea" id="weekly-review-next" placeholder="下周打算做什么？" rows="3"></textarea></div>
+            <div class="reflection-actions"><button class="btn-sm btn-primary" id="save-weekly-review-btn">保存复盘</button><span class="save-status" id="weekly-save-status"></span></div>
+          </div>
+        </div>
+        <div class="review-panel" id="review-panel-monthly">
+          <div class="review-date-nav"><button class="btn-icon" id="prev-review-month">&#8249;</button><span class="date-display" id="review-month-display"></span><button class="btn-icon" id="next-review-month">&#8250;</button></div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#11088; 本月评分</h2></div><div class="rating-row" id="monthly-rating-row"><button class="rating-btn" data-rating="1"><span class="rating-emoji">&#128542;</span><span class="rating-text">很差</span></button><button class="rating-btn" data-rating="2"><span class="rating-emoji">&#128533;</span><span class="rating-text">不好</span></button><button class="rating-btn" data-rating="3"><span class="rating-emoji">&#128528;</span><span class="rating-text">一般</span></button><button class="rating-btn" data-rating="4"><span class="rating-emoji">&#128522;</span><span class="rating-text">不错</span></button><button class="rating-btn" data-rating="5"><span class="rating-emoji">&#129321;</span><span class="rating-text">很棒</span></button></div></div>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#128221; 本月反思</h2></div>
+            <div class="reflection-section"><label class="reflection-label">&#10024; 做得好的</label><textarea class="textarea" id="monthly-review-went-well" placeholder="本月有哪些做得好的事情？" rows="3"></textarea></div>
+            <div class="reflection-section"><label class="reflection-label">&#128260; 需要改进的</label><textarea class="textarea" id="monthly-review-improve" placeholder="有哪些可以做得更好的？" rows="3"></textarea></div>
+            <div class="reflection-section"><label class="reflection-label">&#128161; 下月计划</label><textarea class="textarea" id="monthly-review-next" placeholder="下月打算做什么？" rows="3"></textarea></div>
+            <div class="reflection-actions"><button class="btn-sm btn-primary" id="save-monthly-review-btn">保存复盘</button><span class="save-status" id="monthly-save-status"></span></div>
+          </div>
+        </div>
+        <div class="review-panel" id="review-panel-yearly">
+          <div class="review-date-nav"><button class="btn-icon" id="prev-review-year">&#8249;</button><span class="date-display" id="review-year-display"></span><button class="btn-icon" id="next-review-year">&#8250;</button></div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#11088; 本年评分</h2></div><div class="rating-row" id="yearly-rating-row"><button class="rating-btn" data-rating="1"><span class="rating-emoji">&#128542;</span><span class="rating-text">很差</span></button><button class="rating-btn" data-rating="2"><span class="rating-emoji">&#128533;</span><span class="rating-text">不好</span></button><button class="rating-btn" data-rating="3"><span class="rating-emoji">&#128528;</span><span class="rating-text">一般</span></button><button class="rating-btn" data-rating="4"><span class="rating-emoji">&#128522;</span><span class="rating-text">不错</span></button><button class="rating-btn" data-rating="5"><span class="rating-emoji">&#129321;</span><span class="rating-text">很棒</span></button></div></div>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#128221; 年度总结</h2></div>
+            <div class="reflection-section"><label class="reflection-label">&#10024; 年度亮点</label><textarea class="textarea" id="yearly-review-went-well" placeholder="今年有哪些值得纪念的成就？" rows="4"></textarea></div>
+            <div class="reflection-section"><label class="reflection-label">&#128260; 遗憾和反思</label><textarea class="textarea" id="yearly-review-improve" placeholder="有哪些遗憾和可以改进的？" rows="4"></textarea></div>
+            <div class="reflection-section"><label class="reflection-label">&#128161; 明年展望</label><textarea class="textarea" id="yearly-review-next" placeholder="明年有什么目标和期望？" rows="4"></textarea></div>
+            <div class="reflection-actions"><button class="btn-sm btn-primary" id="save-yearly-review-btn">保存复盘</button><span class="save-status" id="yearly-save-status"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== Health View ==================== -->
+      <section class="view" id="view-health">
+        <div class="view-header"><div><h1 class="view-title">健康</h1><p class="view-subtitle">体重和月经周期追踪</p></div></div>
+        <div class="review-tabs">
+          <button class="review-tab active" data-htab="weight">&#9878; 体重</button>
+          <button class="review-tab" data-htab="cycle">&#127800; 月经周期</button>
+        </div>
+        <div class="review-panel active" id="health-panel-weight">
+          <div class="stats-bar">
+            <div class="stat-card"><div class="stat-card-icon green">&#9878;</div><div class="stat-card-info"><div class="stat-card-value" id="weight-current">--</div><div class="stat-card-label">当前体重(kg)</div></div></div>
+            <div class="stat-card"><div class="stat-card-icon orange">&#128201;</div><div class="stat-card-info"><div class="stat-card-value" id="weight-avg">--</div><div class="stat-card-label">近7天均值</div></div></div>
+            <div class="stat-card"><div class="stat-card-icon blue">&#9650;</div><div class="stat-card-info"><div class="stat-card-value" id="weight-max">--</div><div class="stat-card-label">近7天最高</div></div></div>
+            <div class="stat-card"><div class="stat-card-icon purple">&#9660;</div><div class="stat-card-info"><div class="stat-card-value" id="weight-min">--</div><div class="stat-card-label">近7天最低</div></div></div>
+          </div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#9878; 记录体重</h2></div><div class="weight-input-row"><input type="date" id="weight-date" class="input" style="max-width:160px;"><input type="number" id="weight-value" class="input input-sm" placeholder="体重(kg)" step="0.1" min="0"><input type="text" id="weight-note" class="input" placeholder="备注（可选）"><button class="btn-sm btn-primary" id="weight-add">记录</button></div></div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#128201; 体重趋势</h2></div><div class="chart-wrap" style="height:280px;"><canvas id="weight-chart"></canvas></div></div>
+          <div class="card"><div class="card-header"><h2 class="card-title">&#128203; 体重记录</h2></div><div class="weight-history-list" id="weight-history-list"></div><div class="empty-state" id="weight-empty"><span class="empty-icon">&#9878;</span><p>还没有体重记录</p><span>记录一次体重开始追踪趋势</span></div></div>
+        </div>
+
+        <!-- Apple Health style Cycle Panel -->
+        <div class="review-panel" id="health-panel-cycle">
+          <!-- Apple Health style: Big cycle day ring -->
+          <div class="apple-cycle-hero">
+            <div class="apple-cycle-ring-wrap">
+              <svg viewBox="0 0 200 200" class="apple-cycle-ring-svg">
+                <circle cx="100" cy="100" r="85" class="apple-ring-bg"/>
+                <circle cx="100" cy="100" r="85" class="apple-ring-period" id="apple-ring-period"/>
+                <circle cx="100" cy="100" r="85" class="apple-ring-fertile" id="apple-ring-fertile"/>
+              </svg>
+              <div class="apple-cycle-center">
+                <span class="apple-cycle-day" id="apple-cycle-day">--</span>
+                <span class="apple-cycle-sub" id="apple-cycle-sub">未开始记录</span>
+              </div>
+            </div>
+            <div class="apple-cycle-status" id="apple-cycle-status">
+              <span class="apple-status-icon" id="apple-status-icon">&#127800;</span>
+              <span class="apple-status-text" id="apple-status-text">记录月经开始日期后开始追踪</span>
+            </div>
+          </div>
+
+          <!-- Apple Health style stats -->
+          <div class="stats-bar">
+            <div class="stat-card"><div class="stat-card-icon red">&#128080;</div><div class="stat-card-info"><div class="stat-card-value" id="cycle-last-start">--</div><div class="stat-card-label">上次月经</div></div></div>
+            <div class="stat-card"><div class="stat-card-icon orange">&#128257;</div><div class="stat-card-info"><div class="stat-card-value" id="cycle-length">--</div><div class="stat-card-label">周期长度</div></div></div>
+            <div class="stat-card"><div class="stat-card-icon pink">&#128140;</div><div class="stat-card-info"><div class="stat-card-value" id="cycle-period">--</div><div class="stat-card-label">经期天数</div></div></div>
+            <div class="stat-card"><div class="stat-card-icon purple">&#128680;</div><div class="stat-card-info"><div class="stat-card-value" id="cycle-next">--</div><div class="stat-card-label">预计下次</div></div></div>
+          </div>
+
+          <!-- Apple Health style: Simple log button -->
+          <div class="card apple-log-card">
+            <div class="card-header"><h2 class="card-title">&#127800; 记录月经</h2></div>
+            <div class="apple-log-row">
+              <input type="date" id="cycle-start" class="input" style="max-width:160px;" placeholder="开始日期">
+              <input type="number" id="cycle-days" class="input input-sm" placeholder="持续天数" step="1" min="1" max="15" value="5">
+              <input type="text" id="cycle-note" class="input" placeholder="症状备注（如：痛经、量多）">
+              <button class="btn-sm btn-primary apple-log-btn" id="cycle-add">记录</button>
+            </div>
+          </div>
+
+          <!-- Apple Health style: Horizontal cycle timeline -->
+          <div class="card">
+            <div class="card-header"><h2 class="card-title" id="apple-timeline-title">周期时间线</h2></div>
+            <div class="apple-timeline" id="apple-timeline"></div>
+            <div class="apple-timeline-legend">
+              <div class="apple-legend-item"><span class="apple-legend-dot" style="background:#FF6B6B"></span>经期</div>
+              <div class="apple-legend-item"><span class="apple-legend-dot" style="background:#FFAEC0"></span>预计经期</div>
+              <div class="apple-legend-item"><span class="apple-legend-dot" style="background:#4ECDC4"></span>易孕期</div>
+              <div class="apple-legend-item"><span class="apple-legend-dot" style="background:#E8E8E8"></span>安全期</div>
+            </div>
+          </div>
+
+          <!-- History list (clean) -->
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#128203; 周期记录</h2></div>
+            <div class="cycle-history-list" id="cycle-history-list"></div>
+            <div class="empty-state" id="cycle-empty"><span class="empty-icon">&#127800;</span><p>还没有周期记录</p><span>记录上次月经开始日期开始追踪</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== Reviews (影评) View ==================== -->
+      <section class="view" id="view-reviews">
+        <div class="view-header"><div><h1 class="view-title">影评</h1><p class="view-subtitle">记录你的观影感受，发现经典影视</p></div></div>
+        <div class="review-tabs">
+          <button class="review-tab active" data-vtab="my">&#128221; 我的影评</button>
+          <button class="review-tab" data-vtab="discover">&#128269; 经典推荐</button>
+        </div>
+        <!-- My Reviews Panel -->
+        <div class="review-panel active" id="reviews-panel-my">
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#127916; 写影评</h2></div>
+            <div class="review-form">
+              <div class="review-form-row">
+                <input type="text" id="rv-title" class="input" placeholder="影视名称">
+                <select id="rv-type" class="select select-sm">
+                  <option value="movie">电影</option>
+                  <option value="tv">剧集</option>
+                  <option value="doc">纪录片</option>
+                  <option value="anime">动画</option>
+                </select>
+                <input type="date" id="rv-date" class="input" style="max-width:150px;">
+              </div>
+              <div class="review-form-row">
+                <div class="star-rating" id="rv-stars">
+                  <button class="star-btn" data-v="1">&#9733;</button>
+                  <button class="star-btn" data-v="2">&#9733;</button>
+                  <button class="star-btn" data-v="3">&#9733;</button>
+                  <button class="star-btn" data-v="4">&#9733;</button>
+                  <button class="star-btn" data-v="5">&#9733;</button>
+                </div>
+                <input type="text" id="rv-tags" class="input" placeholder="标签（如：科幻/治愈/悬疑）">
+              </div>
+              <textarea class="textarea" id="rv-content" placeholder="写下你的观影感受..." rows="4"></textarea>
+              <div class="review-form-actions"><button class="btn-sm btn-primary" id="rv-submit">发布影评</button></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h2 class="card-title">&#128203; 我的影评列表</h2></div>
+            <div class="review-list" id="review-list"></div>
+            <div class="empty-state" id="review-empty"><span class="empty-icon">&#127916;</span><p>还没有写过影评</p><span>写第一篇影评开始记录吧</span></div>
+          </div>
+        </div>
+        <!-- Discover Panel -->
+        <div class="review-panel" id="reviews-panel-discover">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">&#128269; 搜索经典影视</h2>
+            </div>
+            <div class="discover-search-row">
+              <input type="text" id="rv-search" class="input" placeholder="搜索片名、导演、类型...">
+              <select id="rv-filter" class="select select-sm">
+                <option value="">全部类型</option>
+                <option value="movie">电影</option>
+                <option value="tv">剧集</option>
+                <option value="doc">纪录片</option>
+                <option value="anime">动画</option>
+              </select>
+              <select id="rv-sort" class="select select-sm">
+                <option value="rating">评分最高</option>
+                <option value="year-new">年份最新</option>
+                <option value="year-old">年份最早</option>
+              </select>
+            </div>
+          </div>
+          <div class="discover-grid" id="discover-grid"></div>
+        </div>
+      </section>
+
+      <!-- ==================== Calendar View ==================== -->
+      <section class="view" id="view-calendar">
+        <div class="view-header">
+          <div><h1 class="view-title">日历</h1><p class="view-subtitle" id="cal-lunar-month">农历月份</p></div>
+          <div class="date-nav"><button class="btn-icon" id="prev-cal-month">&#8249;</button><button class="btn-today" id="this-cal-month-btn">本月</button><button class="btn-icon" id="next-cal-month">&#8250;</button></div>
+        </div>
+
+        <!-- Add Annotation -->
+        <div class="card">
+          <div class="card-header"><h2 class="card-title" id="cal-add-title">&#128221; 添加标注</h2><button class="btn-sm btn-primary" id="cal-anno-btn">+ 添加</button></div>
+          <div class="cal-anno-row" id="cal-anno-row" style="display:none;">
+            <input type="text" id="cal-anno-text" class="input" placeholder="标注内容（如：出差、旅行、备考）">
+            <input type="date" id="cal-anno-start" class="input" style="max-width:150px;">
+            <input type="date" id="cal-anno-end" class="input" style="max-width:150px;">
+            <button class="btn-sm btn-primary" id="cal-anno-confirm">确认</button>
+          </div>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div class="card">
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+
+        <!-- Annotation List -->
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">&#128203; 标注列表</h2></div>
+          <div class="cal-anno-list" id="cal-anno-list"></div>
+          <div class="empty-state" id="cal-anno-empty"><span class="empty-icon">&#128221;</span><p>还没有标注</p><span>添加标注来标记重要日期和事件</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ====== Category Modal ====== -->
+  <div class="modal-overlay" id="cat-modal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="cat-modal-title">添加分类</h3><button class="btn-close" id="cat-modal-close">&#10005;</button></div>
+      <div class="modal-body">
+        <div class="form-row"><label class="form-label" id="cat-modal-label">名称</label><input type="text" id="cat-modal-input" class="input" placeholder="输入名称"></div>
+        <div class="form-row" id="cat-modal-parent-row" style="display:none;"><label class="form-label">所属大项</label><select id="cat-modal-parent" class="select"></select></div>
+      </div>
+      <div class="modal-footer"><button class="btn-sm" id="cat-modal-cancel">取消</button><button class="btn-sm btn-primary" id="cat-modal-confirm">确认</button></div>
+    </div>
+  </div>
+
+  <!-- ====== Mobile Bottom Nav ====== -->
+  <nav class="mobile-nav" id="mobile-nav">
+    <button class="mnav-item active" data-view="daily"><span class="mnav-icon">&#128203;</span><span class="mnav-label">每日</span></button>
+    <button class="mnav-item" data-view="weekly"><span class="mnav-icon">&#128197;</span><span class="mnav-label">每周</span></button>
+    <button class="mnav-item" data-view="monthly"><span class="mnav-icon">&#128198;</span><span class="mnav-label">每月</span></button>
+    <button class="mnav-item" data-view="bills"><span class="mnav-icon">&#129534;</span><span class="mnav-label">账单</span></button>
+    <button class="mnav-item" data-view="savings"><span class="mnav-icon">&#128176;</span><span class="mnav-label">资产</span></button>
+    <button class="mnav-item" data-view="review"><span class="mnav-icon">&#128202;</span><span class="mnav-label">复盘</span></button>
+    <button class="mnav-item" data-view="health"><span class="mnav-icon">&#128154;</span><span class="mnav-label">健康</span></button>
+    <button class="mnav-item" data-view="reviews"><span class="mnav-icon">&#127916;</span><span class="mnav-label">影评</span></button>
+    <button class="mnav-item" data-view="calendar"><span class="mnav-icon">&#128197;</span><span class="mnav-label">日历</span></button>
+  </nav>
+
+  <!-- ====== Toast ====== -->
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

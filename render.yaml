@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: amina-workbench
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/check
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.2
