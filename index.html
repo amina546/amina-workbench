@@ -13,10 +13,15 @@
     <div class="login-card">
       <div class="login-logo">A</div>
       <h2 class="login-title">Amina 工作台</h2>
-      <p class="login-sub" id="login-sub">首次使用请设置密码</p>
-      <input type="password" id="login-password" class="login-input" placeholder="输入密码" autocomplete="current-password">
-      <button class="login-btn" id="login-btn">进入</button>
+      <p class="login-sub" id="login-sub">正在连接云端...</p>
+      <div id="supabase-setup" style="display:none">
+        <input type="text" id="supabase-url" class="login-input" placeholder="项目地址 https://xxx.supabase.co" autocomplete="off" style="margin-bottom:8px;font-size:13px">
+        <input type="text" id="supabase-key" class="login-input" placeholder="Anon Key (eyJ... 开头)" autocomplete="off" style="margin-bottom:8px;font-size:13px">
+      </div>
+      <input type="password" id="login-password" class="login-input" placeholder="输入密码" autocomplete="current-password" style="display:none">
+      <button class="login-btn" id="login-btn" style="display:none">进入</button>
       <p class="login-error" id="login-error"></p>
+      <p class="login-hint" id="login-hint" style="font-size:11px;color:#999;margin-top:8px"></p>
     </div>
   </div>
 

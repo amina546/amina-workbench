@@ -88,62 +88,68 @@ const SYNC_DATA_KEYS = [
 ];
 
 const SyncManager = {
-  token: localStorage.getItem('amina_sync_token') || '',
+  supabaseUrl: localStorage.getItem('amina_supabase_url') || '',
+  supabaseKey: localStorage.getItem('amina_supabase_key') || '',
   isOnline: false,
+  isLoggedIn: false,
   syncTimer: null,
-  apiBase: (() => {
-    // Support ?api=<url> query param for remote backend, or stored value
-    const params = new URLSearchParams(location.search);
-    const fromUrl = params.get('api');
-    if (fromUrl) { localStorage.setItem('amina_api_base', fromUrl); return fromUrl; }
-    return localStorage.getItem('amina_api_base') || '';
-  })(),
 
-  apiUrl(path) { return this.apiBase + path; },
+  restUrl(path) { return this.supabaseUrl + '/rest/v1' + path; },
+
+  headers(json) {
+    const h = { 'apikey': this.supabaseKey, 'Authorization': 'Bearer ' + this.supabaseKey };
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+  },
+
+  async sha256(text) {
+    const buf = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+  },
 
   async checkServer() {
+    if (!this.supabaseUrl || !this.supabaseKey) return null;
     try {
-      const res = await fetch(this.apiUrl('/api/check'), {});
-      if (!res.ok) { this.isOnline = false; return false; }
-      const data = await res.json();
-      this.isOnline = data && typeof data === 'object' && 'initialized' in data;
-      return this.isOnline;
-    } catch { this.isOnline = false; return false; }
+      const res = await fetch(this.restUrl('/workbench_config?select=password_hash'), { headers: this.headers() });
+      if (!res.ok) { this.isOnline = false; return null; }
+      this.isOnline = true;
+      return await res.json();
+    } catch { this.isOnline = false; return null; }
   },
 
   async login(password) {
-    const res = await fetch(this.apiUrl('/api/login'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || '登录失败');
+    const config = await this.checkServer();
+    if (config === null) throw new Error('无法连接云端');
+    const hashHex = await this.sha256(password);
+    if (config.length === 0) {
+      await fetch(this.restUrl('/workbench_config'), {
+        method: 'POST',
+        headers: { ...this.headers(true), 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ id: 'main', password_hash: hashHex })
+      });
+      this.isLoggedIn = true;
+      return { firstRun: true };
+    } else {
+      if (config[0].password_hash === hashHex) { this.isLoggedIn = true; return { firstRun: false }; }
+      throw new Error('密码错误');
     }
-    const data = await res.json();
-    this.token = data.token;
-    localStorage.setItem('amina_sync_token', this.token);
-    return data;
   },
 
   async pull() {
-    if (!this.token) return false;
+    if (!this.isLoggedIn) return false;
     this.setSyncStatus('syncing');
     try {
-      const res = await fetch(this.apiUrl('/api/sync'), {
-        headers: { 'Authorization': 'Bearer ' + this.token }
-      });
-      if (res.status === 401) { this.handleAuthFail(); return false; }
+      const res = await fetch(this.restUrl('/workbench_data?select=*'), { headers: this.headers() });
       if (!res.ok) throw new Error('Sync failed');
-      const serverData = await res.json();
+      const rows = await res.json();
       let changed = false;
-      for (const key of SYNC_DATA_KEYS) {
-        if (serverData[key]) {
-          const localTs = parseInt(localStorage.getItem(key + '_ts') || '0');
-          if (serverData[key].updatedAt > localTs) {
-            localStorage.setItem(key, serverData[key].value);
-            localStorage.setItem(key + '_ts', String(serverData[key].updatedAt));
+      for (const row of rows) {
+        if (SYNC_DATA_KEYS.includes(row.key)) {
+          const localTs = parseInt(localStorage.getItem(row.key + '_ts') || '0');
+          if (row.updated_at > localTs) {
+            localStorage.setItem(row.key, row.value);
+            localStorage.setItem(row.key + '_ts', String(row.updated_at));
             changed = true;
           }
         }
@@ -155,17 +161,16 @@ const SyncManager = {
   },
 
   async push(key, value) {
-    if (!this.token || !this.isOnline) return;
+    if (!this.isLoggedIn || !this.isOnline) return;
     const ts = Date.now();
     localStorage.setItem(key + '_ts', String(ts));
     try {
-      const res = await fetch(this.apiUrl('/api/sync'), {
+      await fetch(this.restUrl('/workbench_data'), {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [key]: { value, updatedAt: ts } })
+        headers: { ...this.headers(true), 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key, value, updated_at: ts })
       });
-      if (res.status === 401) this.handleAuthFail();
-    } catch { /* silent fail, will retry */ }
+    } catch { /* silent fail */ }
   },
 
   setSyncStatus(status) {
@@ -180,8 +185,7 @@ const SyncManager = {
   },
 
   handleAuthFail() {
-    this.token = '';
-    localStorage.removeItem('amina_sync_token');
+    this.isLoggedIn = false;
     this.showLogin();
   },
 
@@ -204,7 +208,7 @@ const SyncManager = {
     const _originalSetItem = localStorage.setItem.bind(localStorage);
     localStorage.setItem = function(key, value) {
       _originalSetItem(key, value);
-      if (SYNC_DATA_KEYS.includes(key) && SyncManager.token) {
+      if (SYNC_DATA_KEYS.includes(key) && SyncManager.isLoggedIn) {
         SyncManager.push(key, value);
       }
     };
@@ -212,18 +216,48 @@ const SyncManager = {
 
   async init() {
     this.setupInterceptor();
-    const serverOk = await this.checkServer();
-    if (!serverOk) {
+    if (!this.supabaseUrl || !this.supabaseKey) {
       this.setSyncStatus('offline');
+      this.showLogin();
+      this.showSupabaseSetup();
       return false;
     }
-    if (this.token) {
-      const ok = await this.pull();
-      if (ok) { this.startPeriodicSync(); return true; }
-      else { this.handleAuthFail(); return false; }
+    const config = await this.checkServer();
+    if (!config) {
+      this.setSyncStatus('offline');
+      this.showLogin();
+      this.showSupabaseSetup();
+      return false;
     }
     this.showLogin();
+    this.showPasswordInput(config.length > 0);
     return false;
+  },
+
+  showSupabaseSetup() {
+    const setup = document.getElementById('supabase-setup');
+    const pwdInput = document.getElementById('login-password');
+    const btn = document.getElementById('login-btn');
+    const sub = document.getElementById('login-sub');
+    const hint = document.getElementById('login-hint');
+    if (setup) setup.style.display = 'block';
+    if (pwdInput) pwdInput.style.display = 'block';
+    if (btn) btn.style.display = 'block';
+    if (sub) sub.textContent = '请填写 Supabase 配置';
+    if (hint) hint.innerHTML = '没有账号？前往 <a href="https://supabase.com" target="_blank">supabase.com</a> 免费注册';
+  },
+
+  showPasswordInput(hasPassword) {
+    const setup = document.getElementById('supabase-setup');
+    const pwdInput = document.getElementById('login-password');
+    const btn = document.getElementById('login-btn');
+    const sub = document.getElementById('login-sub');
+    const hint = document.getElementById('login-hint');
+    if (setup) setup.style.display = 'none';
+    if (pwdInput) { pwdInput.style.display = 'block'; pwdInput.focus(); }
+    if (btn) btn.style.display = 'block';
+    if (sub) sub.textContent = hasPassword ? '请输入密码登录' : '首次使用，请设置密码';
+    if (hint) hint.textContent = hasPassword ? '' : '密码至少4位，请妥善保管';
   }
 };
 
@@ -2406,45 +2440,58 @@ function setupLoginUI() {
   const input = document.getElementById('login-password');
   const error = document.getElementById('login-error');
   const sub = document.getElementById('login-sub');
+  const urlInput = document.getElementById('supabase-url');
+  const keyInput = document.getElementById('supabase-key');
+  const setupDiv = document.getElementById('supabase-setup');
 
-  // Check if first run
-  fetch(SyncManager.apiUrl('/api/check')).then(r => r.json()).then(data => {
-    if (data.initialized) {
-      sub.textContent = '请输入密码登录';
-      input.placeholder = '输入密码';
-    } else {
-      sub.textContent = '首次使用，请设置密码';
-      input.placeholder = '设置密码（至少4位）';
-    }
-  }).catch(() => { sub.textContent = '服务器离线，仅本地使用'; });
-
-  input.focus();
+  if (urlInput) urlInput.value = SyncManager.supabaseUrl;
+  if (keyInput) keyInput.value = SyncManager.supabaseKey;
 
   async function doLogin() {
     const password = input.value;
-    if (!password || password.length < 4) {
-      error.textContent = '密码至少4位';
+    error.textContent = '';
+
+    // If Supabase setup is visible, save config first
+    if (setupDiv && setupDiv.style.display !== 'none') {
+      const url = urlInput.value.trim().replace(/\/+$/, '');
+      const key = keyInput.value.trim();
+      if (!url || !key) { error.textContent = '请填写完整的 Supabase 地址和 Key'; return; }
+      btn.textContent = '连接中...'; btn.disabled = true;
+      SyncManager.supabaseUrl = url;
+      SyncManager.supabaseKey = key;
+      const config = await SyncManager.checkServer();
+      if (config === null) {
+        error.textContent = '连接失败，请检查地址和 Key';
+        btn.textContent = '进入'; btn.disabled = false;
+        return;
+      }
+      localStorage.setItem('amina_supabase_url', url);
+      localStorage.setItem('amina_supabase_key', key);
+      SyncManager.showPasswordInput(config.length > 0);
+      btn.textContent = '进入'; btn.disabled = false;
+      if (input) input.focus();
       return;
     }
-    error.textContent = '';
-    btn.textContent = '请稍候...';
-    btn.disabled = true;
 
+    // Password login / setup
+    if (!password || password.length < 4) { error.textContent = '密码至少4位'; return; }
+    btn.textContent = '请稍候...'; btn.disabled = true;
     try {
-      await SyncManager.login(password);
+      const result = await SyncManager.login(password);
       SyncManager.hideLogin();
       await SyncManager.pull();
       SyncManager.startPeriodicSync();
       startApp();
     } catch (err) {
       error.textContent = err.message;
-      btn.textContent = '进入';
-      btn.disabled = false;
+      btn.textContent = '进入'; btn.disabled = false;
     }
   }
 
   btn.onclick = doLogin;
   input.onkeydown = (e) => { if (e.key === 'Enter') doLogin(); };
+  if (urlInput) urlInput.onkeydown = (e) => { if (e.key === 'Enter') doLogin(); };
+  if (keyInput) keyInput.onkeydown = (e) => { if (e.key === 'Enter') doLogin(); };
 }
 
 function startApp() {
@@ -2458,16 +2505,7 @@ function startApp() {
 }
 
 async function init() {
-  const loggedIn = await SyncManager.init();
-  if (loggedIn) {
-    // Already authenticated, start the app
-    startApp();
-  } else if (SyncManager.isOnline) {
-    // Online but not logged in, show login UI
-    setupLoginUI();
-  } else {
-    // Offline mode, start app with local data only
-    startApp();
-  }
+  await SyncManager.init();
+  setupLoginUI();
 }
 document.addEventListener('DOMContentLoaded', init);
